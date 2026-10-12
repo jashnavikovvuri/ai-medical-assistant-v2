@@ -142,17 +142,15 @@ if uploaded_file is not None:
 # Medical Disclaimer
 # -----------------------------
 
-st.warning(
-    """
-⚠️ Medical Disclaimer
 
-This application provides an AI-based screening result
-for educational and project purposes only.
+st.markdown("""
+---
+**Medical Disclaimer**
 
-It is NOT a medical diagnosis and should not replace
-evaluation by a qualified medical professional.
-"""
-)
+This application provides an AI-based screening result for educational and project purposes only.
+It is not a medical diagnosis and should not replace evaluation by a qualified medical professional.
+""")
+
 
 
 # -----------------------------

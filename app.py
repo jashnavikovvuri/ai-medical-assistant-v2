@@ -1,6 +1,8 @@
 import streamlit as st
 import numpy as np
 from PIL import Image
+from google import genai
+import os
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.resnet50 import preprocess_input
 
@@ -8,6 +10,35 @@ from tensorflow.keras.applications.resnet50 import preprocess_input
 # -----------------------------
 # Page Configuration
 # -----------------------------
+
+def generate_ai_explanation(predicted_class, confidence):
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+        client = genai.Client(api_key=api_key)
+
+        prompt = f"""
+        You are an educational medical information assistant.
+        An image classification model predicted: {predicted_class}.
+        Model confidence: {confidence:.2f}%.
+
+        Explain what this predicted class generally means in
+        simple English. Mention that model confidence is not
+        a medical probability or diagnosis. Recommend review
+        by a qualified radiologist. Do not claim to diagnose
+        the patient or infer findings not provided.
+
+        Keep the explanation clear and concise.
+        """
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+        return response.text
+
+    except Exception as e:
+        return f"GenAI explanation is temporarily unavailable. Please try again later."
+
 st.set_page_config(
     page_title="AI Medical Assistant",
     page_icon="🧠",

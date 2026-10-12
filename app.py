@@ -1,4 +1,3 @@
-
 import streamlit as st
 import numpy as np
 from PIL import Image
@@ -20,7 +19,7 @@ st.write(
 )
 
 
-# GenAI explanation
+# Generate educational explanation using Gemini
 def generate_ai_explanation(predicted_class, confidence):
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
@@ -49,14 +48,16 @@ provided prediction. Keep the explanation concise.
 
         return "No explanation was returned. Please try again."
 
-        except Exception as e:
+    except Exception as e:
+        # Details will appear in the Streamlit app logs
         print(f"GenAI error: {type(e).__name__}: {e}")
         return (
-            "GenAI service is unavailable. "
-            "Please check the app logs."
+            "GenAI explanation is temporarily unavailable. "
+            "Please check the app logs and API configuration."
         )
 
-# Load trained model
+
+# Load the trained MRI classification model
 @st.cache_resource
 def load_ai_model():
     return load_model("resnet50_brain_mri.keras")
@@ -92,24 +93,37 @@ if uploaded_file is not None:
             with st.spinner("Analyzing MRI image..."):
                 img = image.resize((224, 224))
                 img_array = np.array(img, dtype=np.float32)
+
                 input_array = np.expand_dims(img_array, axis=0)
                 input_array = preprocess_input(input_array)
 
-                prediction = model.predict(input_array, verbose=0)
+                prediction = model.predict(
+                    input_array,
+                    verbose=0
+                )
+
                 predicted_index = int(np.argmax(prediction[0]))
                 predicted_class = class_names[predicted_index]
-                confidence = float(prediction[0][predicted_index]) * 100
+                confidence = (
+                    float(prediction[0][predicted_index]) * 100
+                )
 
+            # Display classification result
             st.success(
                 f"Predicted Class: {predicted_class.capitalize()}"
             )
 
-            st.metric("Model Confidence", f"{confidence:.2f}%")
+            st.metric(
+                "Model Confidence",
+                f"{confidence:.2f}%"
+            )
 
-            # GenAI explanation
+            # Generate GenAI explanation
             st.subheader("✨ GenAI Explanation")
 
-            with st.spinner("Generating educational explanation..."):
+            with st.spinner(
+                "Generating educational explanation..."
+            ):
                 explanation = generate_ai_explanation(
                     predicted_class,
                     confidence
@@ -117,7 +131,7 @@ if uploaded_file is not None:
 
             st.write(explanation)
 
-            # Class probabilities
+            # Display class probabilities
             st.subheader("📊 Class Probabilities")
 
             for class_name, probability in zip(
@@ -125,20 +139,25 @@ if uploaded_file is not None:
             ):
                 st.write(
                     f"**{class_name.capitalize()}**: "
-                    f"{probability * 100:.2f}%"
+                    f"{float(probability) * 100:.2f}%"
                 )
-                st.progress(float(probability))
 
-    except Exception:
+                st.progress(
+                    min(max(float(probability), 0.0), 1.0)
+                )
+
+    except Exception as e:
+        print(f"MRI processing error: {type(e).__name__}: {e}")
         st.error(
-            "The image could not be processed. Please upload a valid "
-            "JPG, JPEG, or PNG image and try again."
+            "The image could not be processed, or the model "
+            "encountered an error. Please check the app logs."
         )
 
 
 # Medical disclaimer
 st.markdown("""
 ---
+
 **Medical Disclaimer**
 
 This application is for educational and project demonstration purposes only.
@@ -146,5 +165,10 @@ AI predictions and generated explanations are not medical diagnoses.
 Please consult a qualified medical professional for interpretation of MRI scans.
 """)
 
-st.caption("AI Medical Assistant | Brain MRI Classification")
-st.caption("Built using ResNet50 + TensorFlow + Streamlit + Gemini")
+st.caption(
+    "AI Medical Assistant | Brain MRI Classification"
+)
+
+st.caption(
+    "Built using ResNet50 + TensorFlow + Streamlit + Gemini"
+)

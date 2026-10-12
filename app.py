@@ -49,12 +49,12 @@ provided prediction. Keep the explanation concise.
 
         return "No explanation was returned. Please try again."
 
-    except Exception:
+        except Exception as e:
+        print(f"GenAI error: {type(e).__name__}: {e}")
         return (
-            "GenAI explanation is temporarily unavailable. "
-            "Please check the app configuration and try again."
+            "GenAI service is unavailable. "
+            "Please check the app logs."
         )
-
 
 # Load trained model
 @st.cache_resource

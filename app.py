@@ -6,11 +6,6 @@ import os
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.resnet50 import preprocess_input
 
-
-# -----------------------------
-# Page Configuration
-# -----------------------------
-
 def generate_ai_explanation(predicted_class, confidence):
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
@@ -38,6 +33,11 @@ def generate_ai_explanation(predicted_class, confidence):
 
     except Exception as e:
         return f"GenAI explanation is temporarily unavailable. Please try again later."
+
+
+# -----------------------------
+# Page Configuration
+# -----------------------------
 
 st.set_page_config(
     page_title="AI Medical Assistant",

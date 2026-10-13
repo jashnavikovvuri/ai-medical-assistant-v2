@@ -182,4 +182,3 @@ st.caption(
 st.caption(
     "Built using ResNet50 + TensorFlow + Streamlit + Gemini"
 )
-```

@@ -38,10 +38,10 @@ qualified radiologist. Do not infer any findings beyond the
 provided prediction. Keep the explanation concise.
 """
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
-        )
+       response = client.models.generate_content(
+    model="gemini-3.8-flash",
+    contents=prompt
+)
 
         if response.text:
             return response.text

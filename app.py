@@ -48,13 +48,11 @@ provided prediction. Keep the explanation concise.
 
         return "No explanation was returned. Please try again."
 
-    except Exception as e:
-        # Details will appear in the Streamlit app logs
-        print(f"GenAI error: {type(e).__name__}: {e}")
-        return (
-            "GenAI explanation is temporarily unavailable. "
-            "Please check the app logs and API configuration."
-        )
+    
+except Exception as e:
+    st.error(f"GenAI error: {type(e).__name__}: {e}")
+    return "GenAI explanation is temporarily unavailable."
+
 
 
 # Load the trained MRI classification model

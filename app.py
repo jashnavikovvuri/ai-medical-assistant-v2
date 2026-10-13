@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 import numpy as np
 from PIL import Image
@@ -184,4 +183,3 @@ st.caption(
 st.caption(
     "Built using ResNet50 + TensorFlow + Streamlit + Gemini"
 )
-```

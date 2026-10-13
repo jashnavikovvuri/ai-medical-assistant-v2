@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import numpy as np
 from PIL import Image
@@ -38,10 +39,10 @@ qualified radiologist. Do not infer any findings beyond the
 provided prediction. Keep the explanation concise.
 """
 
-       response = client.models.generate_content(
-    model="gemini-3.8-flash",
-    contents=prompt
-)
+        response = client.models.generate_content(
+            model="gemini-3.8-flash",
+            contents=prompt
+        )
 
         if response.text:
             return response.text
@@ -90,6 +91,7 @@ if uploaded_file is not None:
         if st.button("🔍 Analyze MRI"):
             with st.spinner("Analyzing MRI image..."):
                 img = image.resize((224, 224))
+
                 img_array = np.array(
                     img,
                     dtype=np.float32
@@ -182,3 +184,4 @@ st.caption(
 st.caption(
     "Built using ResNet50 + TensorFlow + Streamlit + Gemini"
 )
+```

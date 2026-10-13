@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import numpy as np
 from PIL import Image
@@ -48,11 +49,11 @@ provided prediction. Keep the explanation concise.
 
         return "No explanation was returned. Please try again."
 
-    
-except Exception as e:
-    st.error(f"GenAI error: {type(e).__name__}: {e}")
-    return "GenAI explanation is temporarily unavailable."
-
+    except Exception as e:
+        st.error(
+            f"GenAI error: {type(e).__name__}: {e}"
+        )
+        return "GenAI explanation is temporarily unavailable."
 
 
 # Load the trained MRI classification model
@@ -90,9 +91,16 @@ if uploaded_file is not None:
         if st.button("🔍 Analyze MRI"):
             with st.spinner("Analyzing MRI image..."):
                 img = image.resize((224, 224))
-                img_array = np.array(img, dtype=np.float32)
+                img_array = np.array(
+                    img,
+                    dtype=np.float32
+                )
 
-                input_array = np.expand_dims(img_array, axis=0)
+                input_array = np.expand_dims(
+                    img_array,
+                    axis=0
+                )
+
                 input_array = preprocess_input(input_array)
 
                 prediction = model.predict(
@@ -100,8 +108,12 @@ if uploaded_file is not None:
                     verbose=0
                 )
 
-                predicted_index = int(np.argmax(prediction[0]))
+                predicted_index = int(
+                    np.argmax(prediction[0])
+                )
+
                 predicted_class = class_names[predicted_index]
+
                 confidence = (
                     float(prediction[0][predicted_index]) * 100
                 )
@@ -133,22 +145,23 @@ if uploaded_file is not None:
             st.subheader("📊 Class Probabilities")
 
             for class_name, probability in zip(
-                class_names, prediction[0]
+                class_names,
+                prediction[0]
             ):
+                probability_value = float(probability)
+
                 st.write(
                     f"**{class_name.capitalize()}**: "
-                    f"{float(probability) * 100:.2f}%"
+                    f"{probability_value * 100:.2f}%"
                 )
 
                 st.progress(
-                    min(max(float(probability), 0.0), 1.0)
+                    min(max(probability_value, 0.0), 1.0)
                 )
 
     except Exception as e:
-        print(f"MRI processing error: {type(e).__name__}: {e}")
         st.error(
-            "The image could not be processed, or the model "
-            "encountered an error. Please check the app logs."
+            f"MRI processing error: {type(e).__name__}: {e}"
         )
 
 
@@ -170,3 +183,4 @@ st.caption(
 st.caption(
     "Built using ResNet50 + TensorFlow + Streamlit + Gemini"
 )
+```

@@ -1,35 +1,62 @@
+
 import streamlit as st
 import numpy as np
 from PIL import Image
+from google import genai
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.resnet50 import preprocess_input
 
-
-# -----------------------------
-# Page Configuration
-# -----------------------------
 st.set_page_config(
     page_title="AI Medical Assistant",
     page_icon="🧠",
     layout="centered"
 )
 
-
-# -----------------------------
-# Title
-# -----------------------------
 st.title("🧠 AI Medical Assistant")
 st.subheader("Brain MRI Classification")
-
 
 st.write(
     "Upload a Brain MRI image to get an AI-based classification result."
 )
 
 
-# -----------------------------
-# Load Model
-# -----------------------------
+# Generate educational explanation using Gemini
+def generate_ai_explanation(predicted_class, confidence):
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+        client = genai.Client(api_key=api_key)
+
+        prompt = f"""
+You are an educational medical information assistant.
+
+An image classification model predicted: {predicted_class}.
+Model confidence score: {confidence:.2f}%.
+
+Explain this class in simple English for educational purposes.
+Clarify that the confidence score is not a medical probability
+and does not confirm a diagnosis. Recommend review by a
+qualified radiologist. Do not infer findings beyond the prediction.
+Keep the explanation concise.
+"""
+
+        response = client.models.generate_content(
+            model="gemini-3.8-flash",
+            contents=prompt
+        )
+
+        if response.text:
+            return response.text
+
+        return "No explanation was returned. Please try again."
+
+    except Exception as e:
+        return (
+            f"GenAI explanation is temporarily unavailable. "
+            f"Error: {type(e).__name__}: {e}"
+        )
+
+
+# Load the trained MRI classification model
 @st.cache_resource
 def load_ai_model():
     return load_model("resnet50_brain_mri.keras")
@@ -37,10 +64,6 @@ def load_ai_model():
 
 model = load_ai_model()
 
-
-# -----------------------------
-# Class Names
-# -----------------------------
 class_names = [
     "glioma",
     "meningioma",
@@ -49,118 +72,131 @@ class_names = [
 ]
 
 
-# -----------------------------
-# Image Upload
-# -----------------------------
+# Upload MRI image
 uploaded_file = st.file_uploader(
     "Upload Brain MRI Image",
     type=["jpg", "jpeg", "png"]
 )
 
-
-# -----------------------------
-# Prediction
-# -----------------------------
 if uploaded_file is not None:
+    try:
+        image = Image.open(uploaded_file).convert("RGB")
 
-    image = Image.open(uploaded_file).convert("RGB")
-
-    st.image(
-        image,
-        caption="Uploaded Brain MRI",
-        use_container_width=True
-    )
-
-    if st.button("🔍 Analyze MRI"):
-
-        with st.spinner("Analyzing MRI image..."):
-
-            # Resize image
-            img = image.resize((224, 224))
-
-            # Convert to array
-            img_array = np.array(img, dtype=np.float32)
-
-            # Add batch dimension
-            input_array = np.expand_dims(img_array, axis=0)
-
-            # ResNet50 preprocessing
-            input_array = preprocess_input(input_array)
-
-            # Prediction
-            prediction = model.predict(
-                input_array,
-                verbose=0
-            )
-
-            # Get predicted class
-            predicted_index = np.argmax(prediction[0])
-
-            predicted_class = class_names[predicted_index]
-
-            confidence = (
-                prediction[0][predicted_index] * 100
-            )
-
-
-        # -----------------------------
-        # Results
-        # -----------------------------
-
-        st.success(
-            f"Predicted Class: {predicted_class.capitalize()}"
+        # Display uploaded MRI image
+        st.image(
+            image,
+            caption="Uploaded Brain MRI",
+            width=400
         )
 
-        st.metric(
-            "Model Confidence",
-            f"{confidence:.2f}%"
+        if st.button("🔍 Analyze MRI"):
+            with st.spinner("Analyzing MRI image..."):
+                img = image.resize((224, 224))
+
+                img_array = np.array(
+                    img,
+                    dtype=np.float32
+                )
+
+                input_array = np.expand_dims(
+                    img_array,
+                    axis=0
+                )
+
+                input_array = preprocess_input(input_array)
+
+                prediction = model.predict(
+                    input_array,
+                    verbose=0
+                )
+
+                predicted_index = int(
+                    np.argmax(prediction[0])
+                )
+
+                predicted_class = class_names[predicted_index]
+
+                confidence = (
+                    float(prediction[0][predicted_index]) * 100
+                )
+
+            # Display classification result
+            st.success(
+                f"Predicted Class: {predicted_class.capitalize()}"
+            )
+
+            st.metric(
+                "Model Confidence",
+                f"{confidence:.2f}%"
+            )
+
+            # Display class probabilities
+            st.subheader("📊 Class Probabilities")
+
+            for class_name, probability in zip(
+                class_names,
+                prediction[0]
+            ):
+                probability_value = float(probability)
+
+                st.write(
+                    f"**{class_name.capitalize()}**: "
+                    f"{probability_value * 100:.2f}%"
+                )
+
+                st.progress(
+                    min(max(probability_value, 0.0), 1.0)
+                )
+
+            # Generate GenAI explanation
+            st.subheader("✨ GenAI Explanation")
+
+            with st.spinner(
+                "Generating educational explanation..."
+            ):
+                explanation = generate_ai_explanation(
+                    predicted_class,
+                    confidence
+                )
+
+            st.write(explanation)
+
+            # Retry explanation with a fresh API request
+            if explanation.startswith(
+                "GenAI explanation is temporarily unavailable."
+            ):
+                if st.button("🔄 Retry GenAI Explanation"):
+                    st.session_state["retry_genai"] = True
+                    st.rerun()
+
+        # Retry without running MRI prediction again
+        if st.session_state.pop("retry_genai", False):
+            st.info(
+                "Please click Analyze MRI again to generate a new explanation."
+            )
+
+    except Exception as e:
+        st.error(
+            f"MRI processing error: {type(e).__name__}: {e}"
         )
 
 
-        # -----------------------------
-        # Class Probabilities
-        # -----------------------------
-
-        st.subheader("📊 Class Probabilities")
-
-        for class_name, probability in zip(
-            class_names,
-            prediction[0]
-        ):
-
-            st.write(
-                f"**{class_name.capitalize()}**: "
-                f"{probability * 100:.2f}%"
-            )
-
-            st.progress(
-                float(probability)
-            )
-
-
-# -----------------------------
-# Medical Disclaimer
-# -----------------------------
-
-
+# Medical disclaimer
 st.markdown("""
 ---
+
 **Medical Disclaimer**
 
-This application provides an AI-based screening result for educational and project purposes only.
-It is not a medical diagnosis and should not replace evaluation by a qualified medical professional.
+This application is for educational and project demonstration purposes only.
+AI predictions and generated explanations are not medical diagnoses.
+The model may make mistakes. Please consult a qualified medical professional
+or radiologist for interpretation of MRI scans.
 """)
-
-
-
-# -----------------------------
-# Footer
-# -----------------------------
 
 st.caption(
     "AI Medical Assistant | Brain MRI Classification"
 )
 
 st.caption(
-    "Built using ResNet50 + TensorFlow + Streamlit"
+    "Built using ResNet50 + TensorFlow + Streamlit + Gemini"
 )

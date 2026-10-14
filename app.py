@@ -82,11 +82,11 @@ if uploaded_file is not None:
         image = Image.open(uploaded_file).convert("RGB")
 
         # Display uploaded MRI image
-        st.image(
-            image,
-            caption="Uploaded Brain MRI",
-            width=400
-        )
+       st.image(
+          np.array(image),
+          caption="Uploaded Brain MRI",
+           width=400
+      )
 
         if st.button("🔍 Analyze MRI"):
             with st.spinner("Analyzing MRI image..."):

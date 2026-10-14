@@ -1,3 +1,4 @@
+
 import streamlit as st
 import numpy as np
 from PIL import Image
@@ -82,15 +83,14 @@ if uploaded_file is not None:
         image = Image.open(uploaded_file).convert("RGB")
 
         # Display uploaded MRI image
-       st.image(
-          np.array(image),
-          caption="Uploaded Brain MRI",
-           width=400
-      )
+        st.image(
+            image,
+            caption="Uploaded Brain MRI",
+            width=400
+        )
 
         if st.button("🔍 Analyze MRI"):
             with st.spinner("Analyzing MRI image..."):
-
                 img = image.resize((224, 224))
 
                 img_array = np.array(
@@ -130,26 +130,6 @@ if uploaded_file is not None:
                 f"{confidence:.2f}%"
             )
 
-            # Generate GenAI explanation
-            st.subheader("✨ GenAI Explanation")
-
-            with st.spinner(
-                "Generating educational explanation..."
-            ):
-                explanation = generate_ai_explanation(
-                    predicted_class,
-                    confidence
-                )
-
-            st.write(explanation)
-
-            # Retry GenAI explanation
-            if explanation.startswith(
-                "GenAI explanation is temporarily unavailable."
-            ):
-                if st.button("🔄 Retry GenAI Explanation"):
-                    st.rerun()
-
             # Display class probabilities
             st.subheader("📊 Class Probabilities")
 
@@ -167,6 +147,33 @@ if uploaded_file is not None:
                 st.progress(
                     min(max(probability_value, 0.0), 1.0)
                 )
+
+            # Generate GenAI explanation
+            st.subheader("✨ GenAI Explanation")
+
+            with st.spinner(
+                "Generating educational explanation..."
+            ):
+                explanation = generate_ai_explanation(
+                    predicted_class,
+                    confidence
+                )
+
+            st.write(explanation)
+
+            # Retry explanation with a fresh API request
+            if explanation.startswith(
+                "GenAI explanation is temporarily unavailable."
+            ):
+                if st.button("🔄 Retry GenAI Explanation"):
+                    st.session_state["retry_genai"] = True
+                    st.rerun()
+
+        # Retry without running MRI prediction again
+        if st.session_state.pop("retry_genai", False):
+            st.info(
+                "Please click Analyze MRI again to generate a new explanation."
+            )
 
     except Exception as e:
         st.error(

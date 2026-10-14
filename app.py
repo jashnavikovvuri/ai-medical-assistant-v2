@@ -1,4 +1,5 @@
 
+import time
 import streamlit as st
 import numpy as np
 from PIL import Image
@@ -24,9 +25,10 @@ st.write(
 def generate_ai_explanation(predicted_class, confidence):
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
-        client = genai.Client(api_key=api_key)
+    except Exception:
+        return "Gemini API key missing. Check Streamlit Secrets."
 
-        prompt = f"""
+    prompt = f"""
 You are an educational medical information assistant.
 
 An image classification model predicted: {predicted_class}.
@@ -39,30 +41,54 @@ qualified radiologist. Do not infer findings beyond the prediction.
 Keep the explanation concise.
 """
 
-        response = client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt
-        )
+    client = genai.Client(api_key=api_key)
 
-        if response.text:
-            return response.text
+    # Retry transient server errors up to 3 attempts
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.8-flash",
+                contents=prompt
+            )
 
-        return "No explanation was returned. Please try again."
+            if response.text:
+                return response.text
 
-    except Exception as e:
-        return (
-            f"GenAI explanation is temporarily unavailable. "
-            f"Error: {type(e).__name__}: {e}"
-        )
+            return "Gemini returned an empty response. Please retry."
+
+        except Exception as e:
+            error_text = str(e)
+            is_temporary = (
+                "503" in error_text
+                or "429" in error_text
+                or "UNAVAILABLE" in error_text.upper()
+                or "RESOURCE_EXHAUSTED" in error_text.upper()
+            )
+
+            if is_temporary and attempt < 2:
+                time.sleep(2 * (attempt + 1))
+                continue
+
+            return (
+                f"GenAI explanation unavailable: "
+                f"{type(e).__name__}: {error_text}"
+            )
 
 
-# Load the trained MRI classification model
+# Load trained MRI classification model
 @st.cache_resource
 def load_ai_model():
     return load_model("resnet50_brain_mri.keras")
 
 
-model = load_ai_model()
+try:
+    model = load_ai_model()
+except Exception as e:
+    st.error(
+        f"Could not load MRI model: {type(e).__name__}: {e}"
+    )
+    st.stop()
+
 
 class_names = [
     "glioma",
@@ -75,16 +101,20 @@ class_names = [
 # Upload MRI image
 uploaded_file = st.file_uploader(
     "Upload Brain MRI Image",
-    type=["jpg", "jpeg", "png"]
+    type=["jpg", "jpeg", "png"],
+    key="mri_uploader"
 )
 
 if uploaded_file is not None:
     try:
-        image = Image.open(uploaded_file).convert("RGB")
+        image_bytes = uploaded_file.getvalue()
 
-        # Display uploaded MRI image
+        image = Image.open(
+            __import__("io").BytesIO(image_bytes)
+        ).convert("RGB")
+
         st.image(
-            image,
+            image.copy(),
             caption="Uploaded Brain MRI",
             width=400
         )
@@ -93,7 +123,7 @@ if uploaded_file is not None:
             with st.spinner("Analyzing MRI image..."):
                 img = image.resize((224, 224))
 
-                img_array = np.array(
+                img_array = np.asarray(
                     img,
                     dtype=np.float32
                 )
@@ -120,22 +150,34 @@ if uploaded_file is not None:
                     float(prediction[0][predicted_index]) * 100
                 )
 
-            # Display classification result
+                st.session_state["mri_result"] = {
+                    "predicted_class": predicted_class,
+                    "confidence": confidence,
+                    "probabilities": prediction[0].tolist()
+                }
+
+                # Clear any previous explanation
+                st.session_state.pop("mri_explanation", None)
+
+        # Show saved prediction after Streamlit reruns
+        result = st.session_state.get("mri_result")
+
+        if result is not None:
             st.success(
-                f"Predicted Class: {predicted_class.capitalize()}"
+                "Predicted Class: "
+                + result["predicted_class"].capitalize()
             )
 
             st.metric(
                 "Model Confidence",
-                f"{confidence:.2f}%"
+                f'{result["confidence"]:.2f}%'
             )
 
-            # Display class probabilities
             st.subheader("📊 Class Probabilities")
 
             for class_name, probability in zip(
                 class_names,
-                prediction[0]
+                result["probabilities"]
             ):
                 probability_value = float(probability)
 
@@ -148,32 +190,28 @@ if uploaded_file is not None:
                     min(max(probability_value, 0.0), 1.0)
                 )
 
-            # Generate GenAI explanation
             st.subheader("✨ GenAI Explanation")
 
-            with st.spinner(
-                "Generating educational explanation..."
-            ):
-                explanation = generate_ai_explanation(
-                    predicted_class,
-                    confidence
-                )
+            if st.button("💬 Generate / Retry Explanation"):
+                with st.spinner(
+                    "Contacting Gemini. Please wait..."
+                ):
+                    explanation = generate_ai_explanation(
+                        result["predicted_class"],
+                        result["confidence"]
+                    )
 
-            st.write(explanation)
+                st.session_state["mri_explanation"] = explanation
 
-            # Retry explanation with a fresh API request
-            if explanation.startswith(
-                "GenAI explanation is temporarily unavailable."
-            ):
-                if st.button("🔄 Retry GenAI Explanation"):
-                    st.session_state["retry_genai"] = True
-                    st.rerun()
+            explanation = st.session_state.get("mri_explanation")
 
-        # Retry without running MRI prediction again
-        if st.session_state.pop("retry_genai", False):
-            st.info(
-                "Please click Analyze MRI again to generate a new explanation."
-            )
+            if explanation:
+                if explanation.startswith(
+                    "GenAI explanation unavailable:"
+                ):
+                    st.warning(explanation)
+                else:
+                    st.write(explanation)
 
     except Exception as e:
         st.error(
@@ -189,7 +227,7 @@ st.markdown("""
 
 This application is for educational and project demonstration purposes only.
 AI predictions and generated explanations are not medical diagnoses.
-The model may make mistakes. Please consult a qualified medical professional
+The model may make mistakes. Consult a qualified medical professional
 or radiologist for interpretation of MRI scans.
 """)
 

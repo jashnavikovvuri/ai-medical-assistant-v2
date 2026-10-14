@@ -32,10 +32,10 @@ An image classification model predicted: {predicted_class}.
 Model confidence score: {confidence:.2f}%.
 
 Explain this class in simple English for educational purposes.
-Explain that the confidence score is not a medical probability
+Clarify that the confidence score is not a medical probability
 and does not confirm a diagnosis. Recommend review by a
-qualified radiologist. Do not infer any findings beyond the
-provided prediction. Keep the explanation concise.
+qualified radiologist. Do not infer findings beyond the prediction.
+Keep the explanation concise.
 """
 
         response = client.models.generate_content(
@@ -49,10 +49,10 @@ provided prediction. Keep the explanation concise.
         return "No explanation was returned. Please try again."
 
     except Exception as e:
-        st.error(
-            f"GenAI error: {type(e).__name__}: {e}"
+        return (
+            f"GenAI explanation is temporarily unavailable. "
+            f"Error: {type(e).__name__}: {e}"
         )
-        return "GenAI explanation is temporarily unavailable."
 
 
 # Load the trained MRI classification model
@@ -81,14 +81,16 @@ if uploaded_file is not None:
     try:
         image = Image.open(uploaded_file).convert("RGB")
 
+        # Display uploaded MRI image
         st.image(
             image,
             caption="Uploaded Brain MRI",
-            use_container_width=True
+            width=400
         )
 
         if st.button("🔍 Analyze MRI"):
             with st.spinner("Analyzing MRI image..."):
+
                 img = image.resize((224, 224))
 
                 img_array = np.array(
@@ -141,6 +143,13 @@ if uploaded_file is not None:
 
             st.write(explanation)
 
+            # Retry GenAI explanation
+            if explanation.startswith(
+                "GenAI explanation is temporarily unavailable."
+            ):
+                if st.button("🔄 Retry GenAI Explanation"):
+                    st.rerun()
+
             # Display class probabilities
             st.subheader("📊 Class Probabilities")
 
@@ -173,7 +182,8 @@ st.markdown("""
 
 This application is for educational and project demonstration purposes only.
 AI predictions and generated explanations are not medical diagnoses.
-Please consult a qualified medical professional for interpretation of MRI scans.
+The model may make mistakes. Please consult a qualified medical professional
+or radiologist for interpretation of MRI scans.
 """)
 
 st.caption(
